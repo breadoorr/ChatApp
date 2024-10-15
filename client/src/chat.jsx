@@ -20,7 +20,7 @@ export default function Chat() {
     }, []);
 
     function connect() {
-        const ws = new WebSocket('ws://chat-app-steel-two.vercel.app');
+        const ws = new WebSocket('ws://chat-app-front-orcin.vercel.app');
         setWs(ws);
         ws.addEventListener('message', handleMessage);
         ws.addEventListener('close', () => {
