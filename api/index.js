@@ -54,7 +54,7 @@ app.get("/api", (req, res) => {
 });
 
 
-app.get('/messages/:userId', async (req, res) => {
+app.get('/api/messages/:userId', async (req, res) => {
     const {userId} = req.params;
     const userData = await getUserData(req);
     let sql = "SELECT * FROM messages WHERE sender IN (?, ?) AND recipient IN (?, ?) ORDER BY created_at ASC";
@@ -69,7 +69,7 @@ app.get('/messages/:userId', async (req, res) => {
 
 });
 
-app.get('/people', async (req, res) => {
+app.get('/api/people', async (req, res) => {
     sql = "SELECT id, username FROM users";
 
     try {
@@ -82,7 +82,7 @@ app.get('/people', async (req, res) => {
     }
 })
 
-app.get('/profile', (req, res) => {
+app.get('/api/profile', (req, res) => {
     const token = req.cookies?.token;
     if (token) {
         jwt.verify(token, jwtSecret, {}, (err, data) => {
@@ -94,7 +94,7 @@ app.get('/profile', (req, res) => {
     }
 })
 
-app.post('/login', async (req, res) => {
+app.post('/api/login', async (req, res) => {
     const {username, password} = req.body;
 
     let sql = "SELECT * FROM users WHERE username = ?"
@@ -126,12 +126,12 @@ app.post('/login', async (req, res) => {
     }
 });
 
-app.post('/logout', (req, res) => {
+app.post('/api/logout', (req, res) => {
     res.cookie('token', '', {sameSite:'none', secure:true}).json('ok');
 })
 
 // Register route
-app.post("/register", async (req, res) => {
+app.post("/api/register", async (req, res) => {
     const { username, password } = req.body;
 
     let sql = "INSERT INTO users (username, password) VALUES (?, ?)";
