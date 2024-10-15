@@ -158,7 +158,7 @@ app.post("/register", async (req, res) => {
 });
 
 // Start the server
-const server = app.listen(4040, () => {
+const server = app.listen(() => {
     console.log("Server running on port 4040");
 });
 
