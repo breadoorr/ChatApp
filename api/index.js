@@ -13,6 +13,10 @@ const fs = require('fs');
 // Load environment variables
 dotenv.config();
 app.use(express.json());
+app.use(express.static(path.resolve(__dirname, "/build"))); // path.resolve was missing here
+app.get("/*", (req, res) =>
+    res.sendFile(path.resolve(__dirname, "/build", "index.html"))
+);
 app.use('/uploads', express.static(__dirname + '/uploads'));
 app.use(cookieParser());
 app.use(cors({
