@@ -20,7 +20,7 @@ export default function Chat() {
     }, []);
 
     function connect() {
-        const ws = new WebSocket('ws://chat-app-front-orcin.vercel.app/api');
+        const ws = new WebSocket('wss://chat-app-front-orcin.vercel.app/api');
         setWs(ws);
         ws.addEventListener('message', handleMessage);
         ws.addEventListener('close', () => {
