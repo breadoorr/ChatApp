@@ -168,7 +168,7 @@ const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-const wss = new ws.WebSocketServer({server})
+const wss = new wss.WebSocketServer({server})
 
 wss.on('connection', (connection, req) => {
 
