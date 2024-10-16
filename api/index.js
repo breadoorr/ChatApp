@@ -21,7 +21,7 @@ app.use('/uploads', express.static(__dirname + '/uploads'));
 app.use(cookieParser());
 app.use(cors({
     credentials: true,
-    origin: 'https://chat-app-front-orcin.vercel.app',
+    origin: process.env.API_URL,
 }));
 const jwtSecret = process.env.JWT_SECRET;
 const bcryptSalt = bcrypt.genSaltSync(10);
