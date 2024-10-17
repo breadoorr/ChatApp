@@ -161,10 +161,13 @@ app.post("/api/register", async (req, res) => {
     }
 });
 
+const https = require('https');
+const server = https.createServer(app);
+
 // Start the server
 const PORT = process.env.PORT || 4040;
 
-const server = app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
