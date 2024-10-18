@@ -161,15 +161,19 @@ app.post("/api/register", async (req, res) => {
     }
 });
 
+const options = {
+    key: fs.readFileSync("server.key"),
+    cert: fs.readFileSync("server.cert"),
+};
+
+const PORT = process.env.PORT || 4040;
 const https = require('https');
-const server = https.createServer(app);
+const server = https.createServer(options, app).listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});;
 
 // Start the server
-const PORT = process.env.PORT || 4040;
 
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
 
 const wss = new ws.WebSocketServer({server})
 
