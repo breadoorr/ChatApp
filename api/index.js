@@ -13,11 +13,15 @@ const fs = require('fs');
 // Load environment variables
 dotenv.config();
 app.use(express.json());
+// app.use(express.static(path.resolve(__dirname, "/build"))); // path.resolve was missing here
+// app.get("/*", (req, res) =>
+//     res.sendFile(path.resolve(__dirname, "/build", "index.html"))
+// );
 app.use('/uploads', express.static(__dirname + '/uploads'));
 app.use(cookieParser());
 app.use(cors({
     credentials: true,
-    origin: 'https://chat-app-front-nlj6glls8-ddorabbles-projects.vercel.app',
+    origin: process.env.REACT_APP_API_URL,
 }));
 const jwtSecret = process.env.JWT_SECRET;
 const bcryptSalt = bcrypt.genSaltSync(10);
@@ -54,7 +58,7 @@ app.get("/api", (req, res) => {
 });
 
 
-app.get('/messages/:userId', async (req, res) => {
+app.get('/api/messages/:userId', async (req, res) => {
     const {userId} = req.params;
     const userData = await getUserData(req);
     let sql = "SELECT * FROM messages WHERE sender IN (?, ?) AND recipient IN (?, ?) ORDER BY created_at ASC";
@@ -69,7 +73,7 @@ app.get('/messages/:userId', async (req, res) => {
 
 });
 
-app.get('/people', async (req, res) => {
+app.get('/api/people', async (req, res) => {
     sql = "SELECT id, username FROM users";
 
     try {
@@ -82,7 +86,7 @@ app.get('/people', async (req, res) => {
     }
 })
 
-app.get('/profile', (req, res) => {
+app.get('/api/profile', (req, res) => {
     const token = req.cookies?.token;
     if (token) {
         jwt.verify(token, jwtSecret, {}, (err, data) => {
@@ -94,7 +98,7 @@ app.get('/profile', (req, res) => {
     }
 })
 
-app.post('/login', async (req, res) => {
+app.post('/api/login', async (req, res) => {
     const {username, password} = req.body;
 
     let sql = "SELECT * FROM users WHERE username = ?"
@@ -108,7 +112,7 @@ app.post('/login', async (req, res) => {
                 const userId = user.id
                 jwt.sign({userId, username}, jwtSecret, {},(err, token)=>{
                     if (err) throw err;
-                    res.cookie('token', token, {sameSite:'none', secure:true}).status(201).json({
+                    res.cookie('token', token, {sameSite:'None', secure:true}).status(201).json({
                         id: userId,
                     });
                 });
@@ -126,12 +130,12 @@ app.post('/login', async (req, res) => {
     }
 });
 
-app.post('/logout', (req, res) => {
+app.post('/api/logout', (req, res) => {
     res.cookie('token', '', {sameSite:'none', secure:true}).json('ok');
 })
 
 // Register route
-app.post("/register", async (req, res) => {
+app.post("/api/register", async (req, res) => {
     const { username, password } = req.body;
 
     let sql = "INSERT INTO users (username, password) VALUES (?, ?)";
@@ -157,9 +161,14 @@ app.post("/register", async (req, res) => {
     }
 });
 
+const https = require('https');
+const server = https.createServer(app);
+
 // Start the server
-const server = app.listen(4040, () => {
-    console.log("Server running on port 4040");
+const PORT = process.env.PORT || 4040;
+
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
 
 const wss = new ws.WebSocketServer({server})
