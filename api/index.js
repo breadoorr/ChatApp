@@ -162,8 +162,8 @@ app.post("/api/register", async (req, res) => {
 });
 
 const options = {
-    key: fs.readFileSync("./server.key"),
-    cert: fs.readFileSync("./server.cert"),
+    key: fs.readFileSync(__dirname + "/server.key"),
+    cert: fs.readFileSync(__dirname + "/server.cert"),
 };
 
 const PORT = process.env.PORT || 4040;
