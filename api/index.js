@@ -110,7 +110,7 @@ app.post('/api/login', async (req, res) => {
             const passOk = bcrypt.compareSync(password, user.password);
             if (passOk) {
                 const userId = user.id
-                jwt.sign({userId, username}, jwtSecret, {},(err, token)=>{
+                jwt.sign({userId, username}, jwtSecret, { expiresIn: '1h' },(err, token)=>{
                     if (err) throw err;
                     res.cookie('token', token, {sameSite:'None', secure:true}).status(201).json({
                         id: userId,
@@ -146,7 +146,7 @@ app.post("/api/register", async (req, res) => {
         const [result] = await pool.execute(sql, [username, hashedPassword]);
         const userId = result.insertId;
 
-        jwt.sign({userId, username}, jwtSecret, {},(err, token)=>{
+        jwt.sign({userId, username}, jwtSecret, { expiresIn: '1h' },(err, token)=>{
             if (err) throw err;
             res.cookie('token', token, {sameSite:'none', secure:true}).status(201).json({
                 id: userId,
@@ -162,8 +162,8 @@ app.post("/api/register", async (req, res) => {
 });
 
 const options = {
-    key: fs.readFileSync("server.key"),
-    cert: fs.readFileSync("server.cert"),
+    key: fs.readFileSync("./server.key"),
+    cert: fs.readFileSync("./server.cert"),
 };
 
 const PORT = process.env.PORT || 4040;
