@@ -166,12 +166,13 @@ const options = {
     cert: fs.readFileSync(__dirname + "/server.cert"),
 };
 
-const server = https.createServer(options, app);
 const PORT = process.env.PORT || 4040;
+const https = require('https');
+const server = https.createServer(options, app);
 
 server.listen(PORT, () => {
-    console.log(`Secure server running on port ${PORT}`);
-});
+    console.log(`Server running on port ${PORT}`);
+});;
 
 // Start the server
 
