@@ -168,11 +168,12 @@ const options = {
 
 const PORT = process.env.PORT || 4040;
 const https = require('https');
-const server = https.createServer(options, app);
+// const server = https.createServer(options, app);
 
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});;
+module.exports.handler = (event, context) => {
+    const server = https.createServer(options, app);
+    return proxy(server, event, context);
+};
 
 // Start the server
 
