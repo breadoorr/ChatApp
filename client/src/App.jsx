@@ -4,7 +4,7 @@ import {UserContextProvider} from "./UserContext.jsx";
 import Routes from "./Routes.jsx";
 
 function App() {
-  axios.defaults.baseURL = 'https://chat-app-steel-two.vercel.app/'
+  axios.defaults.baseURL = 'https://chat-app-front-orcin.vercel.app/'
   axios.defaults.withCredentials = true
 
   return (
