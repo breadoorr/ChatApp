@@ -1,28 +1,26 @@
 const express = require('express');
-const mysql = require('mysql2/promise'); // Use promise-based mysql2
+const mysql = require('mysql2/promise');
 const cookieParser = require('cookie-parser');
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
-const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-const ws = require('ws')
-const {response} = require("express");
 const fs = require('fs');
+const http = require('http'); // We use HTTP instead of HTTPS here
+const { Server } = require("socket.io");
 
 // Load environment variables
 dotenv.config();
+const app = express();
+
 app.use(express.json());
-// app.use(express.static(path.resolve(__dirname, "/build"))); // path.resolve was missing here
-// app.get("/*", (req, res) =>
-//     res.sendFile(path.resolve(__dirname, "/build", "index.html"))
-// );
 app.use('/uploads', express.static(__dirname + '/uploads'));
 app.use(cookieParser());
 app.use(cors({
     credentials: true,
     origin: process.env.REACT_APP_API_URL,
 }));
+
 const jwtSecret = process.env.JWT_SECRET;
 const bcryptSalt = bcrypt.genSaltSync(10);
 
@@ -46,75 +44,67 @@ async function getUserData(req) {
                 resolve(data);
             });
         } else {
-            reject('no token')
+            reject('no token');
         }
-    })
-
+    });
 }
 
 // Test route
 app.get("/api", (req, res) => {
-    res.json("test kk");
+    res.json("API is working!");
 });
 
-
 app.get('/api/messages/:userId', async (req, res) => {
-    const {userId} = req.params;
-    const userData = await getUserData(req);
-    let sql = "SELECT * FROM messages WHERE sender IN (?, ?) AND recipient IN (?, ?) ORDER BY created_at ASC";
+    const { userId } = req.params;
     try {
+        const userData = await getUserData(req);
+        const sql = "SELECT * FROM messages WHERE sender IN (?, ?) AND recipient IN (?, ?) ORDER BY created_at ASC";
         const [result] = await pool.execute(sql, [userId, userData.userId, userId, userData.userId]);
-
         res.json(result);
     } catch (err) {
         console.error(err);
-        res.status(500).json({error: err});
+        res.status(500).json({ error: err.message });
     }
-
 });
 
 app.get('/api/people', async (req, res) => {
-    sql = "SELECT id, username FROM users";
-
     try {
+        const sql = "SELECT id, username FROM users";
         const [result] = await pool.execute(sql);
         res.json(result);
-
     } catch (err) {
         console.error(err);
-        res.status(500).json({error: err});
+        res.status(500).json({ error: err.message });
     }
-})
+});
 
 app.get('/api/profile', (req, res) => {
     const token = req.cookies?.token;
     if (token) {
         jwt.verify(token, jwtSecret, {}, (err, data) => {
             if (err) throw err;
-            res.json({data});
-        })
+            res.json({ data });
+        });
     } else {
-        res.status(401).json('no token')
+        res.status(401).json('no token');
     }
-})
+});
 
 app.post('/api/login', async (req, res) => {
-    const {username, password} = req.body;
-
-    let sql = "SELECT * FROM users WHERE username = ?"
+    const { username, password } = req.body;
     try {
+        const sql = "SELECT * FROM users WHERE username = ?";
         const [result] = await pool.execute(sql, [username]);
 
         if (result.length > 0) {
-            const user = result[0]
+            const user = result[0];
             const passOk = bcrypt.compareSync(password, user.password);
             if (passOk) {
-                const userId = user.id
-                jwt.sign({userId, username}, jwtSecret, { expiresIn: '1h' },(err, token)=>{
+                const userId = user.id;
+                jwt.sign({ userId, username }, jwtSecret, { expiresIn: '1h' }, (err, token) => {
                     if (err) throw err;
-                    res.cookie('token', token, {sameSite:'None', secure:true}).status(201).json({
-                        id: userId,
-                    });
+                    res.cookie('token', token, { sameSite: 'None', secure: true })
+                        .status(201).json({ id: userId });
                 });
             } else {
                 res.status(401).json({ message: "Invalid password" });
@@ -122,8 +112,6 @@ app.post('/api/login', async (req, res) => {
         } else {
             res.status(401).json({ message: "Invalid username" });
         }
-
-
     } catch (error) {
         console.log(error);
         res.status(500).json({ error: "Database error" });
@@ -131,102 +119,66 @@ app.post('/api/login', async (req, res) => {
 });
 
 app.post('/api/logout', (req, res) => {
-    res.cookie('token', '', {sameSite:'none', secure:true}).json('ok');
-})
+    res.cookie('token', '', { sameSite: 'none', secure: true }).json('ok');
+});
 
-// Register route
 app.post("/api/register", async (req, res) => {
     const { username, password } = req.body;
-
-    let sql = "INSERT INTO users (username, password) VALUES (?, ?)";
-
     try {
         const hashedPassword = bcrypt.hashSync(password, bcryptSalt);
-        // Execute the SQL query using the connection pool
+        const sql = "INSERT INTO users (username, password) VALUES (?, ?)";
         const [result] = await pool.execute(sql, [username, hashedPassword]);
         const userId = result.insertId;
 
-        jwt.sign({userId, username}, jwtSecret, { expiresIn: '1h' },(err, token)=>{
+        jwt.sign({ userId, username }, jwtSecret, { expiresIn: '1h' }, (err, token) => {
             if (err) throw err;
-            res.cookie('token', token, {sameSite:'none', secure:true}).status(201).json({
-                id: userId,
-            });
-        })
-
-        // Send back a success response
-        // res.status(201).json({ message: "User registered successfully", userId});
+            res.cookie('token', token, { sameSite: 'none', secure: true })
+                .status(201).json({ id: userId });
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Database error" });
     }
 });
 
-const options = {
-    key: fs.readFileSync(__dirname + "/server.key"),
-    cert: fs.readFileSync(__dirname + "/server.cert"),
-};
+// Create an HTTP server
+const server = http.createServer(app);
 
-const PORT = process.env.PORT || 4040;
-const https = require('https');
-// const server = https.createServer(options, app);
+// Create Socket.IO server
+const io = new Server(server, {
+    cors: {
+        origin: process.env.REACT_APP_API_URL, // Frontend URL
+        methods: ["GET", "POST"],
+        credentials: true
+    }
+});
 
-module.exports.handler = (event, context) => {
-    const server = https.createServer(options, app);
-    return proxy(server, event, context);
-};
-
-// Start the server
-
-
-const wss = new ws.WebSocketServer({server})
-
-wss.on('connection', (connection, req) => {
-
-    function notifyOnline() {
-        [...wss.clients].forEach(client => {
-            client.send(JSON.stringify({
-                    online: [...wss.clients].map(c => ({userId: c.userId, username:c.username}))
-                }
-            ));
+// Middleware to check JWT and assign user data to socket
+io.use((socket, next) => {
+    const token = socket.handshake.headers.cookie?.split(';').find(str => str.trim().startsWith('token='));
+    if (token) {
+        const tokenValue = token.split('=')[1];
+        jwt.verify(tokenValue, jwtSecret, {}, (err, decoded) => {
+            if (err) return next(new Error('Authentication error'));
+            socket.userId = decoded.userId;
+            socket.username = decoded.username;
+            next();
         });
+    } else {
+        next(new Error('No token'));
     }
+});
 
-    connection.isAlive = true;
+io.on('connection', (socket) => {
+    console.log(`User connected: ${socket.username}`);
 
-    connection.timer = setInterval(() => {
-        connection.ping();
-        connection.deathTimer = setTimeout(() => {
-            connection.isAlive = false;
-            clearInterval(connection.timer)
-            connection.terminate();
-            notifyOnline();
-            console.log("dead");
-        }, 1000);
-    }, 3000);
+    // Notify other clients that a user has joined
+    io.emit('onlineUsers', [...io.sockets.sockets].map(([id, client]) => ({
+        userId: client.userId,
+        username: client.username
+    })));
 
-    connection.on('pong', () => {
-        clearTimeout(connection.deathTimer)
-    });
-
-    const cookies = req.headers.cookie;
-    if (cookies) {
-        const tokenCookieString = cookies.split(';').find(str => str.startsWith('token='));
-        if(tokenCookieString) {
-            const token = tokenCookieString.split('=')[1];
-            if(token) {
-                jwt.verify(token, jwtSecret, {}, (err, data) => {
-                    if(err) throw err;
-                    const {userId, username} = data;
-                    connection.userId = userId;
-                    connection.username = username;
-                });
-            }
-        }
-    }
-
-    connection.on('message', async (message) => {
-        const messageData = JSON.parse(message.toString());
-        const {recipient, text, file} = messageData;
+    socket.on('sendMessage', async ({ recipient, text, file }) => {
         let filename = null;
         if (file) {
             const parts = file.name.split('.');
@@ -235,29 +187,37 @@ wss.on('connection', (connection, req) => {
             const path = __dirname + '/uploads/' + filename;
             const bufferData = new Buffer(file.data.split(',')[1], 'base64');
             fs.writeFile(path, bufferData, () => {
-                console.log("file saved" + path);
+                console.log("File saved to " + path);
             });
         }
-        if(recipient && (text || file)) {
-            let sql = "INSERT INTO messages (sender, recipient, text, file) VALUES (?, ?, ?, ?)";
-            const [result] = await pool.execute(sql, [connection.userId, recipient, text, filename]);
-            [...wss.clients]
-                .filter(c => c.userId.toString() === recipient)
-                .forEach(c => c.send(JSON.stringify({
-                    text,
-                    sender: connection.userId,
-                    recipient,
-                    file: file ? filename : null,
-                    id: result.insertId,
 
-                })));
+        if (recipient && (text || file)) {
+            let sql = "INSERT INTO messages (sender, recipient, text, file) VALUES (?, ?, ?, ?)";
+            const [result] = await pool.execute(sql, [socket.userId, recipient, text, filename]);
+
+            // Send message to the recipient
+            io.to(recipient).emit('receiveMessage', {
+                text,
+                sender: socket.userId,
+                recipient,
+                file: filename,
+                id: result.insertId
+            });
         }
     });
-    notifyOnline();
+
+    socket.on('disconnect', () => {
+        console.log(`User disconnected: ${socket.username}`);
+        // Notify all clients about the disconnect
+        io.emit('onlineUsers', [...io.sockets.sockets].map(([id, client]) => ({
+            userId: client.userId,
+            username: client.username
+        })));
+    });
 });
 
-wss.on('close', data => {
-    console.log('Connection closed', data);
+// Start the server on the specified port
+const PORT = process.env.PORT || 4040;
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
-
-

@@ -1,13 +1,13 @@
 import {useContext, useEffect, useRef, useState} from "react";
-import Avatar from "./Avatar.jsx";
 import Logo from "./Logo.jsx";
 import {UserContext} from "./UserContext.jsx";
 import {uniqBy} from "lodash";
 import axios from "axios";
 import Contact from "./Contact.jsx";
+import { io } from "socket.io-client";
 
 export default function Chat() {
-    const [ws, setWs] = useState(null);
+    const [socket, setSocket] = useState(null);
     const [onlinePeople, setOnlinePeople] = useState({});
     const [offlinePeople, setOfflinePeople] = useState({});
     const [selectedUserId, setSelectedUserId] = useState(null);
@@ -15,20 +15,36 @@ export default function Chat() {
     const [messages, setMessages] = useState([]);
     const {username, id, setId, setUsername} = useContext(UserContext);
     const div_messages = useRef();
+
     useEffect(() => {
         connect();
+        return () => {
+            if (socket) {
+                socket.disconnect(); // Clean up when component unmounts
+            }
+        }
     }, []);
 
     function connect() {
-        const ws = new WebSocket('wss://chat-app-front-orcin.vercel.app/api');
-        setWs(ws);
-        ws.addEventListener('message', handleMessage);
-        ws.addEventListener('close', () => {
-            setTimeout(() => {
-                console.log('Trying to reconnect');
-                connect();
-            }, 1000)
+        const socketIo = io('https://chat-app-front-orcin.vercel.app', {
+            withCredentials: true, // Send cookies with Socket.IO requests
+            reconnection: true // Automatically reconnect on disconnect
         });
+        setSocket(socketIo);
+
+        socketIo.on('connect', () => {
+            console.log('Connected to the server');
+        });
+
+        socketIo.on('disconnect', () => {
+            console.log('Disconnected from the server');
+        });
+
+        // Handle incoming messages
+        socketIo.on('message', handleMessage);
+
+        // Handle online people list
+        socketIo.on('onlinePeople', showOnlinePeople);
     }
 
     function showOnlinePeople(peopleArray) {
@@ -39,10 +55,9 @@ export default function Chat() {
         setOnlinePeople(people);
     }
 
-    function handleMessage(ev) {
-        const messageData = JSON.parse(ev.data);
+    function handleMessage(messageData) {
         if ('online' in messageData) {
-            showOnlinePeople(messageData.online)
+            showOnlinePeople(messageData.online);
         } else if ('text' in messageData) {
             if (messageData.sender === selectedUserId) {
                 setMessages(prev => ([...prev, {...messageData}]));
@@ -52,14 +67,16 @@ export default function Chat() {
 
     function sendMessage(ev, file = null) {
         if (ev) ev.preventDefault();
-        ws.send(JSON.stringify({
+
+        // Emit message to the server
+        socket.emit('sendMessage', {
             recipient: selectedUserId,
             text: newMessageText,
             file,
-        }));
+        });
+
         if (file) {
-            axios.get('/messages/'+selectedUserId).then(res => {
-                // const {data} = res;
+            axios.get('/messages/' + selectedUserId).then(res => {
                 setMessages(res.data);
             });
         } else {
@@ -90,6 +107,7 @@ export default function Chat() {
             setWs(null);
             setId(null);
             setUsername(null);
+            socket.disconnect();
         })
     }
 
